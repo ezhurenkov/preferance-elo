@@ -231,8 +231,20 @@ function getSettingsDict(sheet) {
 
 function updateRatingsPlace(sheet, settingsDict) {
   const games = new Games(sheet.getDataRange().getValues(), settingsDict["initialRating"]);
+  const gameIterator = new GameIterator(games);
 
-  var playerRatingsCurrent = {};
+  const playerRatingsCurrent = {};
+
+  while (!gameIterator.isFinished) {
+    const gameValues = gameIterator.getNextGame();
+    const players = gameValues.getPlayers();
+    // wip here
+
+    updateRatingsGame(games, gameValues, settingsDict, playerRatingsCurrent);
+
+    gameValues.updateIsFilled();
+    gameIterator.updateGame(gameValues);
+  }
 
   for (gameId of games.getOrderedGameIds()) {
     const gameResults = games.getGameResults(gameId);
