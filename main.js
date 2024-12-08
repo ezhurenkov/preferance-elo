@@ -131,6 +131,10 @@ class Games {
   setAllIterated {
     this.allIterated = true;
   }
+
+  getRow(column) {
+    return this.data.map(row => row[this.columns[column]]);
+  }
 }
 
 class GameValues {
@@ -321,6 +325,13 @@ function updateRatingsPlace(sheet, settingsDict) {
     }
     gameValues.setValuesFromPlayersDict(playerValuesDict);
     gameIterator.updateGame(gameValues);
+  }
+
+  // update sheet with filled columns
+  for (let col in [RATING_BEFORE_COL, EXPECTED_RESULT_COL, RESULT_COL, RATING_AFTER_COL]) {
+    const range = sheet.getRange(2, games.columns[col] + 1, games.rowsCount, 1);
+    const row = games.getRow(col);
+    range.setValues(row);
   }
 }
 
