@@ -106,68 +106,89 @@ class Games {
                                 "result": result,
                                 "ratingAfter": ratingAfter
                                 };
+      return new GameValues(gameValuesDict, gameId);
     }
   }
 
-//  getGameResults(gameId) {
-//    // return sorted game results [{player: "name1", score: 111},..]
-//    const gameResults = [];
-//    const rowIdxs = this.gamesMapping[gameId];
-//    for (let i of rowIdxs) {
-//      const player = this.data[i][this.columns[PLAYER_COL]];
-//      const score = Number(this.data[i][this.columns[RESULT_COL]]);
-//      gameResults.push({"player": player, "score": score});
-//    }
-//    if (gameResults.length < 3 || gameResults.length > 5) {
-//      throw new Error(`Invalid number of players for game ${gameId}: ${gameResults.length}`);
-//    }
-//    return gameResults;
-//  }
-
-  setValueForPlayer(gameId, player, colName, value) {
-    // set value for player in the game
-    const rowIdxs = this.gamesMapping[gameId];
-    for (let i of rowIdxs) {
-      if (this.data[i][this.columns[PLAYER_COL]] === player) {
-        this.data[i][this.columns[colName]] = value;
-        return;
-      }
+  setGameValues(gameValues) {
+    if (!gameValues.isFilled) {
+      throw new Error(`Game ${gameValues.gameId} is not filled`);
     }
-    throw new Error(`Player ${player} not found in game ${gameId}`);
-  }
 
-  setRatingBefore(gameId, player, rating) {
-    // set rating before the game
-    this.setValueForPlayer(gameId, player, RATING_BEFORE_COL, rating);
-  }
+    const gameId = gameValues.gameId;
+    const playerValuesDict = gameValues.playerValuesDict;
 
-  setRatingAfter(gameId, player, rating) {
-      // set rating after the game
-      this.setValueForPlayer(gameId, player, RATING_AFTER_COL, rating);
-  }
+    for (let playerDict of playerValuesDict) {
+      const row = this.data[playerDict.rowId];
 
-  setExpectedResult(gameId, player, result) {
-      // set expected result for the player
-      this.setValueForPlayer(gameId, player, EXPECTED_RESULT_COL, result);
-  }
-
-  setResult(gameId, player, result) {
-      // set actual result for the player
-      this.setValueForPlayer(gameId, player, RESULT_COL, result);
+      row[this.columns[RATING_BEFORE_COL]] = playerDict.ratingBefore;
+      row[this.columns[EXPECTED_RESULT_COL]] = playerDict.expectedResult;
+      row[this.columns[RESULT_COL]] = playerDict.result;
+      row[this.columns[RATING_AFTER_COL]] = playerDict.ratingAfter;
+    }
   }
 
 
 class GameValues {
-    constructor(playerValuesDict, gameId) {
-        this.playerValuesDict = playerValuesDict;
-        this.gameId = gameId;
+  constructor(playerValuesDict, gameId) {
+    this.playerValuesDict = playerValuesDict;
+    this.gameId = gameId;
+    this.isFilled = false;
+  }
+
+  getPlayers {
+    // return list of players in the game
+      return this.playerValuesDict.map(playerDict => playerDict.player);
+  }
+
+  updateIsFilled {
+    // set isFilled to true if all players have all calculated values filled
+    for (let playerDict of this.playerValuesDict) {
+      if (!playerDict.ratingBefore ||
+          !playerDict.expectedResult ||
+          !playerDict.result ||
+          !playerDict.ratingAfter) {
+        return;
+      }
+    }
+    this.isFilled = true;
+  }
+}
+
+class GameIterator {
+  constructor(games) {
+    this.games = games;
+    this.gameIds = games.getOrderedGameIds();
+    this.currentGameIdx = 0;
+  }
+
+  isFinished {
+    return this.currentGameIdx === this.gameIds.length;
+  }
+
+  getNextGame {
+    if (this.isFinished) {
+      throw new Error("All games have been processed");
     }
 
-    getPlayers {
-      // return list of players in the game
-        return this.playerValuesDict.map(playerDict => playerDict.player);
+    const gameId = this.gameIds[this.currentGameIdx];
+    const gameValues = this.games.getGameValues(gameId);
+    return gameValues;
+  }
+
+  updateGame(gameValues) {
+    if (!gameValues.isFilled) {
+      throw new Error(`Game ${gameValues.gameId} is not filled`);
     }
+    if (gameValues.gameId !== this.gameIds[this.currentGameIdx]) {
+      throw new Error(`Game ${gameValues.gameId} is not the current game ${this.gameIds[this.currentGameIdx]}`);
+    }
+
+    this.games.setGameValues(gameValues);
+    this.currentGameIdx++;
+  }
 }
+
 
 function onEdit(e) {
   // Check if the edited range is in the "Игры" sheet
@@ -224,10 +245,6 @@ function updateRatingsPlace(sheet, settingsDict) {
     }
   }
 }
-
-// Create a class GameIterator that accepts Games object instance.
-// It returns an iterator that yields gameId
-
 function getAndFillPlayerRatingsCurrent(settingsDict, playerRatingsCurrent, gameResults) {
   // return player ratings in the form of {player: rating}
   // fill data with player ratings before the game
