@@ -142,7 +142,7 @@ class GameValues {
 
   getPlayers {
     // return list of players in the game
-      return this.playerValuesDict.map(playerDict => playerDict.player);
+    return this.playerValuesDict.map(playerDict => playerDict.player);
   }
 
   setValuesFromPlayersDict(playerValuesDict) {
@@ -176,6 +176,7 @@ class GameIterator {
     this.games = games;
     this.gameIds = games.getOrderedGameIds();
     this.currentGameIdx = 0;
+    this.isGameUpdatePending = false;
   }
 
   isFinished {
@@ -186,9 +187,13 @@ class GameIterator {
     if (this.isFinished) {
       throw new Error("All games have been processed");
     }
+    if (this.isGameUpdatePending) {
+      throw new Error(`Game ${this.gameIds[this.currentGameIdx]} has not been updated`);
+    }
 
     const gameId = this.gameIds[this.currentGameIdx];
     const gameValues = this.games.getGameValues(gameId);
+    this.isGameUpdatePending = true;
     return gameValues;
   }
 
@@ -205,6 +210,7 @@ class GameIterator {
     if (!this.isFinished) {
       this.games.setAllIterated();
     }
+    this.isGameUpdatePending = false;
   }
 }
 
@@ -267,47 +273,58 @@ function updateRatingsPlace(sheet, settingsDict) {
       }
     }
 
+    // calculate expected results for each player pair
+    const expectedResults = {};
+    const actualResults = {};
+    const difference_divisor = Math.round(settingsDict["difference_divisor"]);
+    for (let [player1, player2] of playerPairs) {
+      // calculate expected results
+      const rating1 = playerRatingsCurrent[player1];
+      const rating2 = playerRatingsCurrent[player2];
 
-    updateRatingsGame(games, gameValues, settingsDict, playerRatingsCurrent);
+      if (!expectedResults[player1]) expectedResults[player1] = 0;
+      if (!expectedResults[player2]) expectedResults[player2] = 0;
 
-    gameValues.updateIsFilled();
+      expectedResults[player1] += 1 / (1 + Math.pow(10, (rating2 - rating1) / difference_divisor));
+      expectedResults[player2] += 1 / (1 + Math.pow(10, (rating1 - rating2) / difference_divisor));
+
+      // calculate actual results
+      const score1 = gameValues.playerValuesDict[player1].vists;
+      const score2 = gameValues.playerValuesDict[player2].vists;
+
+      if (!actualResults[player1]) actualResults[player1] = 0;
+      if (!actualResults[player2]) actualResults[player2] = 0;
+
+      // 1 if won, 0.5 if draw, 0 if lost
+      actualResults[player1] += score1 > score2 ? 1 : score1 === score2 ? 0.5 : 0;
+      actualResults[player2] += score2 > score1 ? 1 : score1 === score2 ? 0.5 : 0;
+    }
+
+    const kFactor = Math.round(settingsDict["k-factor"]);
+    const playerValuesDict = {}
+    for (let player of players) {
+      expectedResults[player] /= players.length - 1;
+      actualResults[player] /= players.length - 1;
+
+      const ratingDifference = kFactor * (actualResults[player] - expectedResults[player]);
+      const ratingNew = playerRatingsCurrent[player] + ratingDifference;
+
+      const playerValues = {
+        RATING_BEFORE_COL: playerRatingsCurrent[player],
+        EXPECTED_RESULT_COL: expectedResults[player],
+        RESULT_COL: actualResults[player],
+        RATING_AFTER_COL: ratingNew
+      };
+      playerValuesDict[player] = playerValues;
+
+      playerRatingsCurrent[player] = ratingNew;
+    }
+    gameValues.setValuesFromPlayersDict(playerValuesDict);
     gameIterator.updateGame(gameValues);
   }
-
-  for (gameId of games.getOrderedGameIds()) {
-    const gameResults = games.getGameResults(gameId);
-    const playerRatingsBefore = getAndFillPlayerRatingsCurrent(settingsDict, playerRatingsCurrent, gameResults);
-
-    for (let playerDict of gameResults) {
-      const player = playerDict.player;
-      const ratingBefore = playerRatingsBefore[player];
-      const ratingAfter = playerRatingsCurrent[player];
-      const score = playerDict.score;
-
-      const expectedResult = calculateExpectedResult(playerRatingsBefore, player);
-      const newRating = calculateNewRating(ratingBefore, ratingAfter, score, expectedResult, settingsDict);
-
-      games.setRatingAfter(gameId, player, newRating);
-      playerRatingsCurrent[player] = newRating;
-    }
-  }
 }
-function getAndFillPlayerRatingsCurrent(settingsDict, playerRatingsCurrent, gameResults) {
-  // return player ratings in the form of {player: rating}
-  // fill data with player ratings before the game
-  var playerRatingsBefore = {};
 
-  for (let playerDict of gameResults) {
-    const player = playerDict.player;
 
-    if (!playerRatingsCurrent[player]) {
-      playerRatingsCurrent[player] = Math.round(settingsDict["initialRating"]);
-    }
-    playerRatingsBefore[player] = playerRatingsCurrent[player];
-  }
-
-  return playerRatingsBefore;
-}
 
 
 
