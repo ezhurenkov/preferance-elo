@@ -14,7 +14,7 @@ const RATING_AFTER_COL = "Рейтинг после"
 
 
 class Games {
-  constructor(values, ratingDefault) {
+  constructor(values) {
     this.validate(values);
 
     this.columns = this.getColumns(values[0]);
@@ -23,7 +23,7 @@ class Games {
     this.rowsCount = this.data.length;
     this.gamesMapping = this.getGamesMapping();
 
-    this.ratingDefault = ratingDefault;
+    this.allIterated = false;
   }
 
   validate(values) {
@@ -128,6 +128,10 @@ class Games {
     }
   }
 
+  setAllIterated {
+    this.allIterated = true;
+  }
+}
 
 class GameValues {
   constructor(playerValuesDict, gameId) {
@@ -186,6 +190,9 @@ class GameIterator {
 
     this.games.setGameValues(gameValues);
     this.currentGameIdx++;
+    if (!this.isFinished) {
+      this.games.setAllIterated();
+    }
   }
 }
 
