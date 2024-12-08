@@ -145,6 +145,18 @@ class GameValues {
       return this.playerValuesDict.map(playerDict => playerDict.player);
   }
 
+  setValuesFromPlayersDict(playerValuesDict) {
+    for (let player of playerValuesDict) {
+      const playerDictUpdate = playerValuesDict[player];
+      const playerDict = this.playerValuesDict[player];
+
+      for (let key in playerDictUpdate) {
+        playerDict[key] = playerDictUpdate[key];
+      }
+    }
+    updateIsFilled();
+  }
+
   updateIsFilled {
     // set isFilled to true if all players have all calculated values filled
     for (let playerDict of this.playerValuesDict) {
@@ -238,7 +250,23 @@ function updateRatingsPlace(sheet, settingsDict) {
   while (!gameIterator.isFinished) {
     const gameValues = gameIterator.getNextGame();
     const players = gameValues.getPlayers();
-    // wip here
+
+    const playerPairs = [];
+    for (let i = 0; i < players.length; i++) {
+      const player = players[i];
+      // initialize player rating
+      if (!playerRatingsCurrent[player]) {
+        playerRatingsCurrent[player] = Math.round(settingsDict["initialRating"]);
+      }
+
+      // split players into pairs: each-to-each
+      for (let j = i + 1; j < players.length; j++) {
+        const player2 = players[j];
+        if (player === player2) continue;
+        playerPairs.push([player, player2]);
+      }
+    }
+
 
     updateRatingsGame(games, gameValues, settingsDict, playerRatingsCurrent);
 
