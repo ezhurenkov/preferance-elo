@@ -111,20 +111,28 @@ class Games {
   }
 
   setGameValues(gameValues) {
-    if (!gameValues.isFilled) {
+    if (!gameValues.isFilled()) {
       throw new Error(`Game ${gameValues.gameId} is not filled`);
     }
 
     const gameId = gameValues.gameId;
     const playerValuesDict = gameValues.playerValuesDict;
 
-    for (let playerDict of playerValuesDict) {
+    Logger.log("Setting values for game " + gameId);
+    Logger.log(playerValuesDict);
+
+    for (let playerDict of Object.values(playerValuesDict)) {
       const row = this.data[playerDict.rowId];
+      Logger.log("Row before update: " + row);
 
       row[this.columns[RATING_BEFORE_COL]] = playerDict.ratingBefore;
       row[this.columns[EXPECTED_RESULT_COL]] = playerDict.expectedResult;
       row[this.columns[RESULT_COL]] = playerDict.result;
       row[this.columns[RATING_AFTER_COL]] = playerDict.ratingAfter;
+
+
+      const row_current = this.data[playerDict.rowId];
+      Logger.log("Row after update: " + row_current);
     }
   }
 
@@ -132,8 +140,14 @@ class Games {
     this.allIterated = true;
   }
 
-  getRow(column) {
-    return this.data.map(row => row[this.columns[column]]);
+  getColumnValues(column) {
+    // returns 2d array with column values
+    const colIdx = this.columns[column];
+    const colValues = [];
+    for (let i = 0; i < this.rowsCount; i++) {
+      colValues.push([this.data[i][colIdx]]);
+    }
+    return colValues;
   }
 }
 
@@ -146,15 +160,15 @@ class GameValues {
 
   getPlayers() {
     // return list of players in the game
-    return this.playerValuesDict.map(playerDict => playerDict.player);
+    return Object.keys(this.playerValuesDict);
   }
 
   setValuesFromPlayersDict(playerValuesDict) {
-    for (let player of playerValuesDict) {
+    for (let player of Object.keys(playerValuesDict)) {
       const playerDictUpdate = playerValuesDict[player];
       const playerDict = this.playerValuesDict[player];
 
-      for (let key in playerDictUpdate) {
+      for (let key in Object.keys(playerDictUpdate)) {
         playerDict[key] = playerDictUpdate[key];
       }
     }
@@ -163,7 +177,7 @@ class GameValues {
 
   updateIsFilled() {
     // set isFilled to true if all players have all calculated values filled
-    for (let playerDict of this.playerValuesDict) {
+    for (let playerDict of Object.values(this.playerValuesDict)) {
       if (!playerDict.ratingBefore ||
           !playerDict.expectedResult ||
           !playerDict.result ||
@@ -184,11 +198,12 @@ class GameIterator {
   }
 
   isFinished() {
+    Logger.log("Running isFinished" + this.currentGameIdx + "/" + this.gameIds.length);
     return this.currentGameIdx === this.gameIds.length;
   }
 
   getNextGame() {
-    if (this.isFinished) {
+    if (this.isFinished()) {
       throw new Error("All games have been processed");
     }
     if (this.isGameUpdatePending) {
@@ -202,16 +217,16 @@ class GameIterator {
   }
 
   updateGame(gameValues) {
-    if (!gameValues.isFilled) {
+    if (!gameValues.isFilled()) {
       throw new Error(`Game ${gameValues.gameId} is not filled`);
     }
     if (gameValues.gameId !== this.gameIds[this.currentGameIdx]) {
       throw new Error(`Game ${gameValues.gameId} is not the current game ${this.gameIds[this.currentGameIdx]}`);
     }
-
+    Logger.log("Updating game " + gameValues.gameId);
     this.games.setGameValues(gameValues);
     this.currentGameIdx++;
-    if (!this.isFinished) {
+    if (!this.isFinished()) {
       this.games.setAllIterated();
     }
     this.isGameUpdatePending = false;
@@ -257,7 +272,7 @@ function updateRatingsPlace(sheet, settingsDict) {
 
   const playerRatingsCurrent = {};
 
-  while (!gameIterator.isFinished) {
+  while (!gameIterator.isFinished()) {
     const gameValues = gameIterator.getNextGame();
     const players = gameValues.getPlayers();
 
@@ -331,8 +346,8 @@ function updateRatingsPlace(sheet, settingsDict) {
   for (let col of [RATING_BEFORE_COL, EXPECTED_RESULT_COL, RESULT_COL, RATING_AFTER_COL]) {
     Logger.log("Updating column " + col + ": range (" + 2 + ", " + games.columns[col] + 1 + ", " + games.rowsCount + ", 1)");
     const range = sheet.getRange(2, games.columns[col] + 1, games.rowsCount, 1);
-    const row = games.getRow(col);
-    range.setValues(row);
+    const columnValues = games.getColumnValues(col);
+    range.setValues(columnValues);
   }
 }
 
