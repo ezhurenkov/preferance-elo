@@ -128,7 +128,7 @@ class Games {
     }
   }
 
-  setAllIterated {
+  setAllIterated() {
     this.allIterated = true;
   }
 
@@ -144,7 +144,7 @@ class GameValues {
     this.isFilled = false;
   }
 
-  getPlayers {
+  getPlayers() {
     // return list of players in the game
     return this.playerValuesDict.map(playerDict => playerDict.player);
   }
@@ -161,7 +161,7 @@ class GameValues {
     updateIsFilled();
   }
 
-  updateIsFilled {
+  updateIsFilled() {
     // set isFilled to true if all players have all calculated values filled
     for (let playerDict of this.playerValuesDict) {
       if (!playerDict.ratingBefore ||
@@ -183,11 +183,11 @@ class GameIterator {
     this.isGameUpdatePending = false;
   }
 
-  isFinished {
+  isFinished() {
     return this.currentGameIdx === this.gameIds.length;
   }
 
-  getNextGame {
+  getNextGame() {
     if (this.isFinished) {
       throw new Error("All games have been processed");
     }
@@ -328,7 +328,8 @@ function updateRatingsPlace(sheet, settingsDict) {
   }
 
   // update sheet with filled columns
-  for (let col in [RATING_BEFORE_COL, EXPECTED_RESULT_COL, RESULT_COL, RATING_AFTER_COL]) {
+  for (let col of [RATING_BEFORE_COL, EXPECTED_RESULT_COL, RESULT_COL, RATING_AFTER_COL]) {
+    Logger.log("Updating column " + col + ": range (" + 2 + ", " + games.columns[col] + 1 + ", " + games.rowsCount + ", 1)");
     const range = sheet.getRange(2, games.columns[col] + 1, games.rowsCount, 1);
     const row = games.getRow(col);
     range.setValues(row);
