@@ -23,7 +23,8 @@ class Games {
     this.rowsCount = this.data.length;
     this.gamesMapping = this.getGamesMapping();
 
-    this.allIterated = false;
+    Logger.log("Rows count: " + this.rowsCount);
+    Logger.log("Games mapping: " + JSON.stringify(this.gamesMapping));
   }
 
   validate(values) {
@@ -59,35 +60,28 @@ class Games {
   getGamesMapping() {
     // game id to row indexes
     var gamesMapping = {};
-    const idRow = this.columns[GAME_ID_COL];
 
     for (let i = 0; i < this.rowsCount; i++) {
-      const id = this.data[i][idRow];
-      if (!gamesMapping[id]) {
-        gamesMapping[id] = [];
+      const gameId = this.data[i][this.columns[GAME_ID_COL]];
+      if (!gamesMapping[gameId]) {
+        gamesMapping[gameId] = [];
       }
-      gamesMapping[id].push(i);
+      gamesMapping[gameId].push(i);
     }
   return gamesMapping
-  }
-
-  getGameIdxs(gameId) {
-    // return row indexes for the game
-    return this.gamesMapping[gameId];
   }
 
   getOrderedGameIds() {
     // return ascending ordered list of game ids
     return Object.keys(this.gamesMapping)
-    .map(id => Number(id))
-    .sort((a, b) => a - b);
+                 .map(id => Number(id))
+                 .sort((a, b) => a - b);
   }
 
   getGameValues(gameId) {
-    const rowIdxs = this.gamesMapping[gameId];
     const gameValuesDict = {};
 
-    for (let i of rowIdxs) {
+    for (let i of this.gamesMapping[gameId]) {
       const player = this.data[i][this.columns[PLAYER_COL]];
       const vists = Number(this.data[i][this.columns[VISTS_COL]]);
       const ratingBefore = Number(this.data[i][this.columns[RATING_BEFORE_COL]]);
@@ -100,44 +94,37 @@ class Games {
       }
 
       gameValuesDict[player] = {"rowId": i,
-                                "vists": vists,
-                                "ratingBefore": ratingBefore,
-                                "expectedResult": expectedResult,
-                                "result": result,
-                                "ratingAfter": ratingAfter
+                                [VISTS_COL]: vists,
+                                [RATING_BEFORE_COL]: null,
+                                [RATING_AFTER_COL]: null,
+                                [EXPECTED_RESULT_COL]: null,
+                                [RESULT_COL]: null,
                                 };
-      return new GameValues(gameValuesDict, gameId);
     }
+
+    return new GameValues(gameValuesDict, gameId);
   }
 
   setGameValues(gameValues) {
-    if (!gameValues.isFilled()) {
+    if (!gameValues.isFilled) {
       throw new Error(`Game ${gameValues.gameId} is not filled`);
     }
 
-    const gameId = gameValues.gameId;
-    const playerValuesDict = gameValues.playerValuesDict;
+    Logger.log("Setting values for game " + gameValues.gameId);
+    Logger.log("Player values: " + JSON.stringify(gameValues.playerValuesDict));
 
-    Logger.log("Setting values for game " + gameId);
-    Logger.log(playerValuesDict);
-
-    for (let playerDict of Object.values(playerValuesDict)) {
+    for (let playerDict of Object.values(gameValues.playerValuesDict)) {
       const row = this.data[playerDict.rowId];
-      Logger.log("Row before update: " + row);
 
-      row[this.columns[RATING_BEFORE_COL]] = playerDict.ratingBefore;
-      row[this.columns[EXPECTED_RESULT_COL]] = playerDict.expectedResult;
-      row[this.columns[RESULT_COL]] = playerDict.result;
-      row[this.columns[RATING_AFTER_COL]] = playerDict.ratingAfter;
+      row[this.columns[RATING_BEFORE_COL]] = playerDict[RATING_BEFORE_COL]
+      row[this.columns[EXPECTED_RESULT_COL]] = playerDict[EXPECTED_RESULT_COL];
+      row[this.columns[RESULT_COL]] = playerDict[RESULT_COL];
+      row[this.columns[RATING_AFTER_COL]] = playerDict[RATING_AFTER_COL];
 
-
+      // debug
       const row_current = this.data[playerDict.rowId];
       Logger.log("Row after update: " + row_current);
     }
-  }
-
-  setAllIterated() {
-    this.allIterated = true;
   }
 
   getColumnValues(column) {
@@ -163,29 +150,35 @@ class GameValues {
     return Object.keys(this.playerValuesDict);
   }
 
-  setValuesFromPlayersDict(playerValuesDict) {
-    for (let player of Object.keys(playerValuesDict)) {
-      const playerDictUpdate = playerValuesDict[player];
-      const playerDict = this.playerValuesDict[player];
-
-      for (let key in Object.keys(playerDictUpdate)) {
-        playerDict[key] = playerDictUpdate[key];
-      }
-    }
-    updateIsFilled();
-  }
-
   updateIsFilled() {
     // set isFilled to true if all players have all calculated values filled
+    const requiredColumns = [RATING_BEFORE_COL, RATING_AFTER_COL, EXPECTED_RESULT_COL, RESULT_COL];
     for (let playerDict of Object.values(this.playerValuesDict)) {
-      if (!playerDict.ratingBefore ||
-          !playerDict.expectedResult ||
-          !playerDict.result ||
-          !playerDict.ratingAfter) {
+      if (requiredColumns.some(key => playerDict[key] === null)) {
+        this.isFilled = false;
         return;
       }
     }
     this.isFilled = true;
+  }
+
+  setValuesFromPlayersDict(playerNewValuesDict) {
+    for (let player of Object.keys(playerNewValuesDict)) {
+      const playerDictUpdate = playerNewValuesDict[player];
+      const playerDict = this.playerValuesDict[player];
+      Logger.log("Updating player " + player + " with values: " + JSON.stringify(playerDictUpdate));
+
+      for (let key of Object.keys(playerDictUpdate)) {
+        playerDict[key] = playerDictUpdate[key];
+      }
+      Logger.log("Player values after update: " + JSON.stringify(playerDict));
+    }
+    this.updateIsFilled();
+  }
+
+  toString() {
+    // return string representation of the game ID and game values player: values
+    return `Game ${this.gameId}: ${JSON.stringify(this.playerValuesDict)}`;
   }
 }
 
@@ -217,7 +210,8 @@ class GameIterator {
   }
 
   updateGame(gameValues) {
-    if (!gameValues.isFilled()) {
+    if (!gameValues.isFilled) {
+      Logger.log("Game values: " + JSON.stringify(gameValues));
       throw new Error(`Game ${gameValues.gameId} is not filled`);
     }
     if (gameValues.gameId !== this.gameIds[this.currentGameIdx]) {
@@ -226,9 +220,6 @@ class GameIterator {
     Logger.log("Updating game " + gameValues.gameId);
     this.games.setGameValues(gameValues);
     this.currentGameIdx++;
-    if (!this.isFinished()) {
-      this.games.setAllIterated();
-    }
     this.isGameUpdatePending = false;
   }
 }
@@ -329,10 +320,10 @@ function updateRatingsPlace(sheet, settingsDict) {
       const ratingNew = playerRatingsCurrent[player] + ratingDifference;
 
       const playerValues = {
-        RATING_BEFORE_COL: playerRatingsCurrent[player],
-        EXPECTED_RESULT_COL: expectedResults[player],
-        RESULT_COL: actualResults[player],
-        RATING_AFTER_COL: ratingNew
+        [RATING_BEFORE_COL]: playerRatingsCurrent[player],
+        [EXPECTED_RESULT_COL]: expectedResults[player],
+        [RESULT_COL]: actualResults[player],
+        [RATING_AFTER_COL]: ratingNew
       };
       playerValuesDict[player] = playerValues;
 
