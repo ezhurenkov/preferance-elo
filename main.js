@@ -258,7 +258,7 @@ function getSettingsDict(sheet) {
 }
 
 function updateRatingsPlace(sheet, settingsDict) {
-  const games = new Games(sheet.getDataRange().getValues(), settingsDict["initialRating"]);
+  const games = new Games(sheet.getDataRange().getValues(), settingsDict["base_rating"]);
   const gameIterator = new GameIterator(games);
 
   const playerRatingsCurrent = {};
@@ -272,7 +272,8 @@ function updateRatingsPlace(sheet, settingsDict) {
       const player = players[i];
       // initialize player rating
       if (!playerRatingsCurrent[player]) {
-        playerRatingsCurrent[player] = Math.round(settingsDict["initialRating"]);
+        Logger.log("Initializing player " + player + " with rating " + settingsDict["base_rating"]);
+        playerRatingsCurrent[player] = Math.round(settingsDict["base_rating"]);
       }
 
       // split players into pairs: each-to-each
@@ -282,6 +283,7 @@ function updateRatingsPlace(sheet, settingsDict) {
         playerPairs.push([player, player2]);
       }
     }
+    Logger.log("Player ratings current: " + JSON.stringify(playerRatingsCurrent));
 
     // calculate expected results for each player pair
     const expectedResults = {};
@@ -309,6 +311,8 @@ function updateRatingsPlace(sheet, settingsDict) {
       actualResults[player1] += score1 > score2 ? 1 : score1 === score2 ? 0.5 : 0;
       actualResults[player2] += score2 > score1 ? 1 : score1 === score2 ? 0.5 : 0;
     }
+    Logger.log("Expected results: " + JSON.stringify(expectedResults));
+    Logger.log("Actual results: " + JSON.stringify(actualResults));
 
     const kFactor = Math.round(settingsDict["k-factor"]);
     const playerValuesDict = {}
